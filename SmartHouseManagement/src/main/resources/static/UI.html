@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SmartHouse Base Model</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background-color: #f4f4f9; }
+        .page { display: none; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); max-width: 500px; margin: auto;}
+        .active { display: block; }
+        .device-card { border: 1px solid #ddd; padding: 15px; margin-top: 10px; border-radius: 5px; }
+        button { padding: 8px 15px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px;}
+    </style>
+</head>
+<body>
+
+<div id="loginPage" class="page active">
+    <h2>SmartHouse Login</h2>
+    <input type="text" id="username" placeholder="Username (admin)" /><br><br>
+    <input type="password" id="password" placeholder="Password (password123)" /><br><br>
+    <button onclick="attemptLogin()">Log In</button>
+    <p id="loginError" style="color:red;"></p>
+</div>
+
+<div id="dashboardPage" class="page">
+    <h2>My Devices</h2>
+    <div id="deviceList"></div>
+</div>
+
+<script>
+    async function attemptLogin() {
+        const user = document.getElementById('username').value;
+        const pass = document.getElementById('password').value;
+
+        const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: user, password: pass })
+        });
+
+        if (response.ok) {
+            document.getElementById('loginPage').classList.remove('active');
+            document.getElementById('dashboardPage').classList.add('active');
+            loadDevices();
+        } else {
+            document.getElementById('loginError').innerText = "Invalid credentials.";
+        }
+    }
+
+    async function loadDevices() {
+        const response = await fetch('/api/devices');
+        const devices = await response.json();
+        const list = document.getElementById('deviceList');
+        list.innerHTML = '';
+
+        devices.forEach(device => {
+            let extraInfo = '';
+            if (device.deviceType === 'THERMOSTAT') {
+                extraInfo = `<p>Temp: ${device.temperature}°C</p>`;
+            } else if (device.deviceType === 'OVEN') {
+                extraInfo = `<p>Temp: ${device.temperature}°C | Timer: ${device.cookingTimeMinutes || 0} min</p>`;
+            }
+
+            list.innerHTML += `
+                    <div class="device-card">
+                        <h3>${device.name} (${device.brand})</h3>
+                        <p>Type: ${device.deviceType}</p>
+                        <p>Power: <b>${device.powerStatus ? 'ON' : 'OFF'}</b></p>
+                        ${extraInfo}
+                        <button onclick="togglePower('${device.id}')">Toggle Power</button>
+                    </div>
+                `;
+        });
+    }
+
+    async function togglePower(id) {
+        await fetch(`/api/devices/${id}/toggle`, { method: 'POST' });
+        loadDevices(); // Refresh the UI
+    }
+</script>
+</body>
+</html>
